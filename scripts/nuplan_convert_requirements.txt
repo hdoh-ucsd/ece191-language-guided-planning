@@ -1,0 +1,64 @@
+# CPU-only environment for nuPlan -> ScenarioNet conversion (Python 3.9).
+# Versions come from nuplan-devkit/requirements_lock.txt (devkit 1.2.2) so pip does not
+# backtrack; dashboard/test-only packages (jupyter, selenium, docker, moto, ...) are left out.
+# torch/torchvision are installed separately from the PyTorch CPU index.
+
+# nuplan-devkit core
+numpy==1.23.4
+pandas==1.5.0
+scipy==1.9.1
+matplotlib==3.6.0
+pillow==9.2.0
+pyarrow==9.0.0
+SQLAlchemy==1.4.27
+hydra-core==1.1.0rc1
+omegaconf==2.1.0rc1
+pyquaternion>=0.9.5
+cachetools
+psutil
+joblib
+tqdm
+retry
+ujson
+typer
+tornado
+nest_asyncio
+pyinstrument
+sympy
+control==0.9.1
+casadi==3.5.5
+guppy3==3.1.2
+bokeh==2.4.3
+grpcio==1.43.0
+grpcio-tools==1.43.0
+ray==2.0.0
+protobuf==3.20.3
+opencv-python==4.5.1.48
+pytest  # imported at module level by nuplan/database/utils/pointclouds/lidar.py
+
+# maps (GPKG) stack
+Shapely==2.0.1
+geopandas==0.12.2
+Fiona==1.8.21
+pyogrio==0.4.1
+rasterio==1.3.2
+rtree
+
+# S3 helpers are imported at module load even for local data
+boto3==1.24.59
+botocore==1.27.59
+aioboto3==10.4.0
+aiofiles
+s3fs==2023.1.0
+requests
+urllib3<2
+
+# training stack imported by nuplan.planning.script.utils
+pytorch-lightning==1.3.8
+torchmetrics==0.7.2
+future==0.18.1
+
+# ScenarioNet (vendored in valeo4cast). Its nuPlan converter uses MetaDriveType members
+# (LANE_SURFACE_UNSTRUCTURE, BOUNDARY_SIDEWALK) that exist only on metadrive's main branch,
+# so metadrive itself is installed from git in Dockerfile.nuplan, not from PyPI.
+yapf

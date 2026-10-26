@@ -1,0 +1,4 @@
+# Prevent legacy packages from silently replacing the CUDA 12.8 PyTorch build.
+numpy==1.24.2
+torch==2.7.1
+torchvision==0.22.1

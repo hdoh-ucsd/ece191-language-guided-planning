@@ -1,0 +1,56 @@
+name: valeo-mtr
+services:
+  # Stage 0 (CPU only): convert raw nuPlan logs into the ScenarioNet format the mtr
+  # service reads. Kept in its own image because nuplan-devkit pins Python 3.9 / torch 1.9.
+  nuplan-convert:
+    build:
+      context: .
+      dockerfile: Dockerfile.nuplan
+    image: local/nuplan-convert:py39
+    environment:
+      NUPLAN_DATA_ROOT: /mnt/nuplan
+      NUPLAN_MAPS_ROOT: /mnt/nuplan/maps
+      NUPLAN_EXP_ROOT: /tmp/nuplan_exp
+      NUPLAN_DATA_STORE: local
+      PYTHONUNBUFFERED: '1'
+    volumes:
+      # rw: the devkit creates a .maplocks/ folder next to the maps.
+      - ${HOST_NUPLAN_DIR:-./nuplan_data}:/mnt/nuplan:rw
+      - ${HOST_SCENARIONET_DIR:-./scenarionet_data}:/mnt/scenarionet:rw
+    command: ["bash", "/opt/mtr-scripts/convert_nuplan.sh"]
+
+  # Stage 1: prove Docker can run CUDA/PyTorch on the RTX 5070 Ti.
+  gpu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: gpu
+    image: local/valeo-mtr-gpu:cu128
+    gpus: all
+    command: ["python3", "/opt/mtr-scripts/gpu_smoke.py"]
+
+  # Stage 2: custom MTR ops + Valeo4Cast. Build after GPU test succeeds.
+  mtr:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: mtr
+    image: local/valeo-mtr:cu128
+    gpus: all
+    ipc: private
+    shm_size: '4gb'
+    stdin_open: true
+    tty: true
+    working_dir: /opt/valeo4cast/UniTraj/unitraj
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      PYTHONUNBUFFERED: '1'
+      # torch>=2.6 defaults torch.load to weights_only=True; Lightning 2.2.5
+      # checkpoints carry non-tensor objects and need the old behaviour.
+      TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD: '1'
+    volumes:
+      - ${HOST_WEIGHTS_DIR:-./weights}:/mnt/weights:ro
+      - ${HOST_SCENARIONET_DIR:-./scenarionet_data}:/mnt/scenarionet:rw
+      - ${HOST_RESULTS_DIR:-./outputs}:/mnt/outputs:rw
+    command: ["bash"]

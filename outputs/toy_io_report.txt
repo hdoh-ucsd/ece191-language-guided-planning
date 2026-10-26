@@ -1,0 +1,64 @@
+====================================================================================================
+MODEL INPUT  (one preprocessed sample; collate_fn stacks these along a new batch axis)
+cache file: sd_nuscenes_mini_val_scene-0103_dc762bf1bc694d3e8141bf592f9b1456_700c1a25559b4433be532de3475e58a9.pkl___0.pkl  (8 samples in this chunk, 4 chunks in cache)
+====================================================================================================
+  scenario_id                str_ = 'scene-0103_dc762bf1bc694d3e8141bf592f9b1456_700c1a25559b4433be532de3475e58a9'  ScenarioNet scenario id
+  obj_trajs                  ndarray (64, 21, 39) float32            agent history, [agents, past steps, 39]; zero where obj_trajs_mask is False
+  obj_trajs_mask             ndarray (64, 21) bool                   which (agent, step) entries are observed
+  track_index_to_predict     int64 = 0                               row of obj_trajs that is the target agent
+  obj_trajs_pos              ndarray (64, 21, 3) float32             x,y,z of every agent per past step
+  obj_trajs_last_pos         ndarray (64, 3) float32                 last observed x,y,z per agent
+  center_objects_world       ndarray (10,) float32                   target state at prediction time in world coordinates (x,y,z,l,w,h,heading,vx,vy,valid)
+  center_objects_traj_type   ndarray (1,) float32                    
+  center_objects_label       ndarray (1,) int32                      
+  center_objects_id          str_ = 'dc762bf1bc694d3e8141bf592f9b1456'  target object id
+  center_objects_type        int64 = 1                               target type id (1 vehicle, 2 pedestrian, 3 cyclist)
+  map_center                 ndarray (3,) float32                    global offset added back when converting predictions to world frame
+  obj_trajs_future_state     ndarray (64, 60, 4) float32             future x,y,vx,vy of every agent (used for loss only, not seen by the encoder)
+  obj_trajs_future_mask      ndarray (64, 60) float32                validity of the future states
+  center_gt_trajs            ndarray (60, 4) float32                 target future x,y,vx,vy in target frame, [60, 4]
+  center_gt_trajs_mask       ndarray (60,) float32                   validity of each future step
+  center_gt_final_valid_idx  float32 = 59.0                          index of last valid future step
+  center_gt_trajs_src        ndarray (81, 10) float32                full world-frame source trajectory, [past+future, 10]
+  current_time_indices       int64 = 5                               frame index of the prediction time inside the scenario
+  map_polylines              ndarray (768, 20, 9) float32            vectorised map, [polylines, points per polyline, 9]
+  map_polylines_mask         ndarray (768, 20) bool                  valid points per polyline
+  map_polylines_center       ndarray (768, 3) float32                x,y,z centre of each polyline
+  dataset_name               str = 'nuscenes'                        source dataset
+  kalman_difficulty          ndarray (3,) float64                    difficulty score of the ground-truth future (postprocess)
+  trajectory_type            int = 0                                 motion class of the ground-truth future (postprocess)
+
+obj_trajs last-axis layout (39 features):
+  [ 0: 6]  x, y, z, length, width, height (target-centred)
+  [ 6:11]  one-hot: vehicle, pedestrian, cyclist, is-target, is-ego
+  [11:32]  one-hot time index (21 past steps)
+  [32:33]  timestamp in seconds
+  [33:35]  sin(heading), cos(heading)
+  [35:37]  vx, vy
+  [37:39]  ax, ay (finite difference at 10 Hz)
+map_polylines last-axis layout (9 features):
+  [ 0: 3]  x, y, z (target-centred)
+  [ 3: 6]  direction unit vector
+  [ 6: 7]  polyline type id
+  [ 7: 9]  previous point x, y
+
+agents observed at prediction time: 31 of 64 slots, past steps observed for target: 21 of 21
+future ground-truth steps available: 60 of 60
+
+====================================================================================================
+MODEL OUTPUT  (one prediction file; 27 files = targets x prediction times)
+file: scene-0103_dc762bf1bc694d3e8141bf592f9b1456_700c1a25559b4433be532de3475e58a9___dc762bf1bc694d3e8141bf592f9b1456___10___.pt
+====================================================================================================
+  scenario_id             str_ = 'scene-0103_dc762bf1bc694d3e8141bf592f9b1456_700c1a25559b4433be532de3475e58a9'  ScenarioNet scenario id
+  pred_trajs              ndarray (5, 60, 2) float32              predicted x,y per mode in WORLD frame, [modes, future steps, 2]
+  past_det_scores         ndarray () float32                      detection confidence of the target (1.0 when inputs are ground truth)
+  pred_scores             ndarray (5,) float32                    probability of each mode (softmax, after NMS)
+  object_id               str_ = 'dc762bf1bc694d3e8141bf592f9b1456'  target object id
+  object_type             int64 = 1                               target type id
+  gt_trajs                ndarray (81, 10) float32                same as input center_gt_trajs_src, world frame, [past+future, 10]
+  track_index_to_predict  ndarray () int64                        row of obj_trajs that was the target
+  current_time_index      ndarray () int64                        frame index of the prediction time
+
+mode probabilities: [0.7450000047683716, 0.21899999678134918, 0.03200000151991844, 0.0020000000949949026, 0.0010000000474974513]  (best mode: 0)
+minADE over modes: 1.01 m   minFDE: 2.86 m   (over 60 valid future steps)
+plot saved: /mnt/outputs/toy_forecast.png

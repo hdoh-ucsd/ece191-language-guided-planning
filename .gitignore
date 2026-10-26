@@ -1,0 +1,32 @@
+# Machine-specific configuration (copy .env.example to .env)
+.env
+
+# Large inputs mounted into the containers at runtime
+weights/
+nuplan_data/
+scenarionet_data/
+
+# Build and run logs
+logs/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Binary artefacts (checkpoints, predictions, pickles, embeddings)
+*.pt
+*.pth
+*.ckpt
+*.pkl
+*.zip
+*.joblib
+*.kv
+
+# Results: keep metrics, reports and figures; drop the bulky per-pair tables
+# and the 910 MB of re-scored prediction tensors.
+outputs/**/reranked_pt/
+outputs/**/pairs.csv
+outputs/**/reranked.csv
+outputs/**/reranked_rules.csv
+outputs/doplan_lang_lam*/plots/

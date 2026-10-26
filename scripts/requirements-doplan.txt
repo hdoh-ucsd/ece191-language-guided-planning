@@ -1,0 +1,8 @@
+# Host-side doPlan language re-ranking (scripts/doplan_lang). torch is needed only to read the MTR
+# .pt files; install a CPU wheel if it is absent (torch>=2.0). numpy/scipy/joblib come with the pins.
+gensim==4.4.0
+scikit-learn==1.7.0      # intent_clf.joblib is a pickle tied to this version
+pandas>=2.2
+matplotlib>=3.8
+scipy>=1.11
+pytest>=8

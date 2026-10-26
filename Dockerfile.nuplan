@@ -1,0 +1,69 @@
+# syntax=docker/dockerfile:1.7
+# CPU-only nuPlan -> ScenarioNet conversion environment.
+# nuplan-devkit pins Python 3.9 and torch 1.9, which cannot share the CUDA 12.8 / torch 2.7
+# image used for MTR inference, so conversion lives in its own small image. No GPU needed.
+FROM python:3.9-slim-bookworm AS nuplan-convert
+
+ARG NUPLAN_DEVKIT_COMMIT=e9241677997dd86bfc0bcd44817ab04fe631405b
+ARG VALEO_COMMIT=dce207347c140ed5cdaeac6c217eb00ee0634e71
+# No PyPI release of metadrive defines the map types the vendored nuPlan converter emits.
+ARG METADRIVE_COMMIT=fe54b03327b14bcfc17a9a04b60c8abbee4d7ab1
+ENV DEBIAN_FRONTEND=noninteractive \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    MPLBACKEND=Agg \
+    NUPLAN_DATA_ROOT=/mnt/nuplan \
+    NUPLAN_MAPS_ROOT=/mnt/nuplan/maps \
+    NUPLAN_EXP_ROOT=/tmp/nuplan_exp \
+    NUPLAN_DATA_STORE=local
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git ca-certificates build-essential \
+    libgl1 libglib2.0-0 libegl1 libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# setuptools pinned like the devkit does; pip < 24.1 still accepts the legacy metadata
+# of several 2022-era packages in the lock set.
+RUN python3 -m pip install --upgrade 'pip<24.1' 'setuptools==59.5.0' wheel
+
+RUN python3 -m pip install --no-cache-dir \
+      'torch==1.9.0+cpu' 'torchvision==0.10.0+cpu' \
+      -f https://download.pytorch.org/whl/torch_stable.html
+
+COPY scripts/nuplan_convert_requirements.txt /opt/mtr-scripts/
+RUN python3 -m pip install --no-cache-dir -r /opt/mtr-scripts/nuplan_convert_requirements.txt
+
+# metadrive from a pinned main-branch commit (see METADRIVE_COMMIT above). numpy and
+# opencv stay at the devkit's pins because metadrive's own requirements are unbounded.
+RUN python3 -m pip install --no-cache-dir \
+      "metadrive-simulator @ git+https://github.com/metadriverse/metadrive.git@${METADRIVE_COMMIT}" \
+    && python3 -c 'from metadrive.type import MetaDriveType as T; \
+print("metadrive", __import__("metadrive.version", fromlist=["VERSION"]).VERSION, \
+T.LANE_SURFACE_UNSTRUCTURE, T.BOUNDARY_SIDEWALK)'
+
+# Pinned devkit revision (master, v1.2.2 line).
+RUN git init /opt/nuplan-devkit \
+    && git -C /opt/nuplan-devkit remote add origin https://github.com/motional/nuplan-devkit.git \
+    && git -C /opt/nuplan-devkit fetch --depth=1 origin "${NUPLAN_DEVKIT_COMMIT}" \
+    && git -C /opt/nuplan-devkit checkout --detach FETCH_HEAD \
+    && python3 -m pip install --no-cache-dir --no-deps -e /opt/nuplan-devkit
+
+# Same Valeo4Cast commit as the mtr image, so the converter and the reader agree on format.
+RUN git init /opt/valeo4cast \
+    && git -C /opt/valeo4cast remote add origin https://github.com/valeoai/valeo4cast.git \
+    && git -C /opt/valeo4cast fetch --depth=1 origin "${VALEO_COMMIT}" \
+    && git -C /opt/valeo4cast checkout --detach FETCH_HEAD \
+    && python3 -m pip install --no-cache-dir --no-deps -e /opt/valeo4cast/scenarionet
+
+COPY scripts/patch_nuplan_convert.py scripts/convert_nuplan.sh /opt/mtr-scripts/
+RUN python3 /opt/mtr-scripts/patch_nuplan_convert.py \
+        --devkit /opt/nuplan-devkit --scenarionet /opt/valeo4cast/scenarionet
+
+RUN python3 -c 'import torch, pytorch_lightning, ray, nuplan; \
+from scenarionet.converter.nuplan.utils import get_nuplan_scenarios, convert_nuplan_scenario; \
+print("nuplan-convert imports OK")'
+
+WORKDIR /opt/valeo4cast/scenarionet
+CMD ["bash", "/opt/mtr-scripts/convert_nuplan.sh"]

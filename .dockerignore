@@ -1,0 +1,13 @@
+.git
+__pycache__
+*.pyc
+*.zip
+*.pt
+*.pth
+*.ckpt
+*.pkl
+weights/
+scenarionet_data/
+outputs/
+nuplan_data/
+.env

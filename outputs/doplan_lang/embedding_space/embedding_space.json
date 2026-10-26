@@ -1,0 +1,431 @@
+{
+  "word": {
+    "cos_left_right": 0.590158224105835,
+    "rank_of_right_among_left_neighbours": 1,
+    "rank_of_left_among_right_neighbours": 1,
+    "norm_left": 1.9760396480560303,
+    "norm_right": 2.102417230606079,
+    "norm_difference": 1.8496793508529663
+  },
+  "clause": {
+    "cos_word_axis_vs_centroid_axis": 0.974908709526062,
+    "turn_on_word_axis": {
+      "n_pos": 1271,
+      "n_neg": 1084,
+      "auc": 0.996324479373826,
+      "mean_pos": 0.2222183644771576,
+      "mean_neg": -0.16423062980175018,
+      "std_pooled": 0.1303379088640213
+    },
+    "lane_on_word_axis": {
+      "n_pos": 282,
+      "n_neg": 602,
+      "auc": 0.9964008859357697,
+      "mean_pos": 0.04562107473611832,
+      "mean_neg": -0.26589906215667725,
+      "std_pooled": 0.07758340984582901
+    },
+    "turn_on_centroid_axis": {
+      "n_pos": 1271,
+      "n_neg": 1084,
+      "auc": 0.9910369264982972,
+      "mean_pos": 0.22427572309970856,
+      "mean_neg": -0.17211927473545074,
+      "std_pooled": 0.1389593929052353
+    },
+    "projection_on_word_axis_by_intent": {
+      "turn_left": {
+        "mean": 0.2222183644771576,
+        "sd": 0.09745429456233978
+      },
+      "turn_right": {
+        "mean": -0.16423062980175018,
+        "sd": 0.15645641088485718
+      },
+      "lane_left": {
+        "mean": 0.04562107473611832,
+        "sd": 0.06259196996688843
+      },
+      "lane_right": {
+        "mean": -0.26589906215667725,
+        "sd": 0.09011446684598923
+      },
+      "stop": {
+        "mean": 0.10432995855808258,
+        "sd": 0.10624247044324875
+      },
+      "straight": {
+        "mean": 0.02727825567126274,
+        "sd": 0.10680301487445831
+      },
+      "other": {
+        "mean": -0.047290172427892685,
+        "sd": 0.12364791333675385
+      }
+    },
+    "word_axis_top_words": {
+      "left_pole": [
+        [
+          "trailer",
+          1.14
+        ],
+        [
+          "an",
+          1.05
+        ],
+        [
+          "out",
+          0.93
+        ],
+        [
+          "left",
+          0.79
+        ],
+        [
+          "or",
+          0.78
+        ],
+        [
+          "stationary",
+          0.76
+        ],
+        [
+          "floor",
+          0.72
+        ],
+        [
+          "direction",
+          0.7
+        ]
+      ],
+      "right_pole": [
+        [
+          "right",
+          -1.06
+        ],
+        [
+          "balloon",
+          -1.0
+        ],
+        [
+          "west",
+          -0.81
+        ],
+        [
+          "righ",
+          -0.8
+        ],
+        [
+          "sedan",
+          -0.68
+        ],
+        [
+          "allow",
+          -0.66
+        ],
+        [
+          "tturn",
+          -0.66
+        ],
+        [
+          "limos",
+          -0.65
+        ]
+      ],
+      "rank_of_left_from_left_pole": 4,
+      "rank_of_right_from_right_pole": 1,
+      "vocabulary": 616
+    },
+    "variance_fraction_along_word_axis": 0.02942105196416378,
+    "pca_variance_ratio_first5": [
+      0.17,
+      0.105,
+      0.088,
+      0.079,
+      0.052
+    ],
+    "most_aligned_pc": 13,
+    "abs_cos_word_axis_vs_pcs_1to5": [
+      0.087,
+      0.102,
+      0.252,
+      0.262,
+      0.156
+    ],
+    "cos_direction_axis_turn_vs_lane": 0.8040024042129517,
+    "cos_manoeuvre_axis_left_vs_right": 0.9587627053260803,
+    "cos_centroids_turn_left_turn_right": 0.9638261198997498,
+    "cos_centroids_turn_left_stop": 0.8650102019309998,
+    "cos_centroids_turn_left_straight": 0.7556086182594299,
+    "silhouette_cosine_left_vs_right": 0.11552324146032333,
+    "nearest_centroid_accuracy_left_vs_right": 0.9447983014861996,
+    "logreg_raw_cv_accuracy_left_vs_right": 0.991932059447983,
+    "logreg_standardised_cv_accuracy_left_vs_right": 0.9961783439490446,
+    "counterfactual": {
+      "n": 2355,
+      "cos_original_vs_swapped": {
+        "median": 0.9830038547515869,
+        "p10": 0.861367404460907,
+        "p90": 0.9952040314674377
+      },
+      "cos_original_vs_random_same_intent": {
+        "median": 0.781654417514801,
+        "p10": 0.620613694190979,
+        "p90": 0.9279972910881042
+      },
+      "cos_original_vs_random_opposite_intent": {
+        "median": 0.7503421306610107,
+        "p10": 0.5915318131446838,
+        "p90": 0.9012937545776367
+      },
+      "classifier_flip_rate": 0.926133909287257,
+      "n_flip_tested": 2315,
+      "flip_rate_when_original_classified_correctly": 0.9322779243623571,
+      "rate_still_predicting_original_direction": 0.004319654427645789,
+      "mean_tokens_flipped": 6.285914179104478,
+      "mean_tokens_not_flipped": 10.865497076023392
+    }
+  },
+  "commands": [
+    {
+      "text": "turn left at the intersection",
+      "rule_intent": "turn_left",
+      "proba": {
+        "turn_left": 0.9998203394627063,
+        "turn_right": 1.5435377906015478e-06,
+        "lane_left": 8.782627102558862e-05,
+        "lane_right": 2.167089150155222e-10,
+        "stop": 1.1587762178283737e-08,
+        "straight": 1.5238257002100504e-07,
+        "other": 9.012654143644891e-05
+      },
+      "proj_d": 0.18063203990459442,
+      "n_tokens": 5,
+      "n_in_vocab": 5
+    },
+    {
+      "text": "turn right at the intersection",
+      "rule_intent": "turn_right",
+      "proba": {
+        "turn_left": 4.3914154130068025e-08,
+        "turn_right": 0.9989074966798004,
+        "lane_left": 2.096990953237327e-11,
+        "lane_right": 0.0010694739850499178,
+        "stop": 5.939641337091926e-10,
+        "straight": 8.140971287675334e-09,
+        "other": 2.2976665090247482e-05
+      },
+      "proj_d": -0.18930384516716003,
+      "n_tokens": 5,
+      "n_in_vocab": 5
+    },
+    {
+      "text": "make a left turn at the light",
+      "rule_intent": "turn_left",
+      "proba": {
+        "turn_left": 0.9992533487372326,
+        "turn_right": 1.92989736347264e-05,
+        "lane_left": 0.0001530459181759659,
+        "lane_right": 4.6346785852450235e-09,
+        "stop": 3.947472154519623e-06,
+        "straight": 1.996526388538401e-06,
+        "other": 0.0005683577377351333
+      },
+      "proj_d": 0.22791291773319244,
+      "n_tokens": 7,
+      "n_in_vocab": 7
+    },
+    {
+      "text": "take the next right",
+      "rule_intent": "turn_right",
+      "proba": {
+        "turn_left": 1.2710464793041245e-09,
+        "turn_right": 0.9999460521333698,
+        "lane_left": 3.4147739536427336e-14,
+        "lane_right": 1.1348830758271324e-05,
+        "stop": 3.8125725698252045e-13,
+        "straight": 1.0724203595528467e-13,
+        "other": 4.259776430288736e-05
+      },
+      "proj_d": -0.2350042164325714,
+      "n_tokens": 4,
+      "n_in_vocab": 4
+    },
+    {
+      "text": "make a u turn",
+      "rule_intent": "turn_left",
+      "proba": {
+        "turn_left": 0.9990343120660914,
+        "turn_right": 0.000862047627452805,
+        "lane_left": 1.0198093966396732e-12,
+        "lane_right": 5.3806020709723373e-14,
+        "stop": 3.0219111395376926e-07,
+        "straight": 3.35315705983677e-13,
+        "other": 0.00010333811393280379
+      },
+      "proj_d": 0.2062746286392212,
+      "n_tokens": 4,
+      "n_in_vocab": 4
+    },
+    {
+      "text": "change to the left lane",
+      "rule_intent": "lane_left",
+      "proba": {
+        "turn_left": 2.5098254320857964e-07,
+        "turn_right": 6.174393506135462e-14,
+        "lane_left": 0.9999977685773488,
+        "lane_right": 5.195257035089161e-07,
+        "stop": 7.093376441900665e-11,
+        "straight": 2.856151923734279e-09,
+        "other": 1.4579872571981012e-06
+      },
+      "proj_d": 0.04205908626317978,
+      "n_tokens": 5,
+      "n_in_vocab": 5
+    },
+    {
+      "text": "merge into the right lane",
+      "rule_intent": "lane_right",
+      "proba": {
+        "turn_left": 1.4498918731086843e-17,
+        "turn_right": 1.0385361086713629e-08,
+        "lane_left": 1.4041169931025826e-07,
+        "lane_right": 0.9999985046516057,
+        "stop": 1.8268077152537467e-12,
+        "straight": 1.2453548928210524e-09,
+        "other": 1.3433041524276645e-06
+      },
+      "proj_d": -0.37990424036979675,
+      "n_tokens": 5,
+      "n_in_vocab": 5
+    },
+    {
+      "text": "stop at the stop sign",
+      "rule_intent": "stop",
+      "proba": {
+        "turn_left": 5.610948225956282e-05,
+        "turn_right": 2.3249140579842074e-06,
+        "lane_left": 3.739456187957244e-07,
+        "lane_right": 7.952893113283999e-10,
+        "stop": 0.9999411428751162,
+        "straight": 1.4258711030895582e-08,
+        "other": 3.3728947074562904e-08
+      },
+      "proj_d": 0.1558297872543335,
+      "n_tokens": 5,
+      "n_in_vocab": 5
+    },
+    {
+      "text": "pull over here",
+      "rule_intent": "stop",
+      "proba": {
+        "turn_left": 9.474400376445342e-07,
+        "turn_right": 1.7695352714934126e-05,
+        "lane_left": 1.9320161119194465e-05,
+        "lane_right": 1.0736058458151946e-06,
+        "stop": 0.9992117320055958,
+        "straight": 0.000747884598119585,
+        "other": 1.3468365670305452e-06
+      },
+      "proj_d": 0.05419408529996872,
+      "n_tokens": 3,
+      "n_in_vocab": 3
+    },
+    {
+      "text": "go straight through the intersection",
+      "rule_intent": "straight",
+      "proba": {
+        "turn_left": 1.3551229683206088e-08,
+        "turn_right": 4.285284587485263e-05,
+        "lane_left": 9.233858031247955e-09,
+        "lane_right": 2.7698314534141774e-08,
+        "stop": 8.971223851567299e-10,
+        "straight": 0.999956986692806,
+        "other": 1.0908079447970466e-07
+      },
+      "proj_d": -0.026949703693389893,
+      "n_tokens": 5,
+      "n_in_vocab": 5
+    },
+    {
+      "text": "keep going straight",
+      "rule_intent": "straight",
+      "proba": {
+        "turn_left": 6.564877062753429e-08,
+        "turn_right": 7.052271532035991e-12,
+        "lane_left": 6.907286523847233e-23,
+        "lane_right": 2.6706238001596278e-14,
+        "stop": 2.483980475015464e-14,
+        "straight": 0.9999999343441254,
+        "other": 2.3887851347723263e-16
+      },
+      "proj_d": 0.14103509485721588,
+      "n_tokens": 3,
+      "n_in_vocab": 3
+    },
+    {
+      "text": "stay in the right lane",
+      "rule_intent": "straight",
+      "proba": {
+        "turn_left": 5.860320452275328e-09,
+        "turn_right": 1.340890985258522e-05,
+        "lane_left": 2.4651618080870386e-06,
+        "lane_right": 0.03763350591592145,
+        "stop": 1.1436084830905044e-07,
+        "straight": 0.9623489313863023,
+        "other": 1.5684049467395038e-06
+      },
+      "proj_d": -0.15800027549266815,
+      "n_tokens": 5,
+      "n_in_vocab": 5
+    },
+    {
+      "text": "head toward the hotel",
+      "rule_intent": "other",
+      "proba": {
+        "turn_left": 0.0006629925802461968,
+        "turn_right": 8.322493066500527e-06,
+        "lane_left": 1.910428925419322e-05,
+        "lane_right": 1.4401148048038408e-10,
+        "stop": 2.6484485082913167e-08,
+        "straight": 8.375049011947884e-06,
+        "other": 0.9993011789599244
+      },
+      "proj_d": -0.1357254981994629,
+      "n_tokens": 4,
+      "n_in_vocab": 4
+    },
+    {
+      "text": "go around the roundabout",
+      "rule_intent": "other",
+      "proba": {
+        "turn_left": 0.0017846389817035326,
+        "turn_right": 0.00175095451362072,
+        "lane_left": 2.3987170530599546e-06,
+        "lane_right": 5.537292577187544e-07,
+        "stop": 4.089894956290101e-05,
+        "straight": 0.01412247993479184,
+        "other": 0.98229807517401
+      },
+      "proj_d": -0.16621033847332,
+      "n_tokens": 4,
+      "n_in_vocab": 4
+    },
+    {
+      "text": "turn right from the left lane",
+      "rule_intent": "other",
+      "proba": {
+        "turn_left": 0.009188813494836181,
+        "turn_right": 0.0003676194084666239,
+        "lane_left": 0.7900430037480735,
+        "lane_right": 0.015402172352106343,
+        "stop": 1.5078738331849278e-07,
+        "straight": 8.95849145872468e-05,
+        "other": 0.18490865529454695
+      },
+      "proj_d": 0.010789458639919758,
+      "n_tokens": 6,
+      "n_in_vocab": 6
+    }
+  ]
+}
