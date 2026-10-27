@@ -60,6 +60,22 @@ def side_sign(intent: str) -> int:
     return 1 if intent.endswith('_left') else -1 if intent.endswith('_right') else 0
 
 
+def mirror_intent(intent: str) -> str:
+    return intent.replace('_left', '_X').replace('_right', '_left').replace('_X', '_right')
+
+
+def lane_compliance_frame(df: pd.DataFrame, cfg: Config, intent_col: str = 'rule_intent') -> pd.DataFrame:
+    """Lane compliance (v2 spec 4.4): pairs with a lateral rule intent, a full future and a recorded future whose
+    lane label IS that intent; success when the top-1's lane label is the intent."""
+    if 'fut_label' not in df.columns:
+        return pd.DataFrame(columns=list(df.columns) + ['old_ok', 'new_ok', 'cf_ok'])
+    sub = df[df[intent_col].isin(LATERAL_INTENTS) & (df.fut_valid >= FUTURE_STEPS) & (df.fut_label == df[intent_col])].copy()
+    sub['old_ok'] = sub.old_top1_label == sub[intent_col]
+    sub['new_ok'] = sub.new_top1_label == sub[intent_col]
+    sub['cf_ok'] = sub.new_ok & (sub.cf_top1_label == sub[intent_col].map(mirror_intent))
+    return sub
+
+
 def compliance_frame(df: pd.DataFrame, cfg: Config, intent_col: str = 'rule_intent') -> pd.DataFrame:
     """Pairs whose instruction (by the keyword rule label, so every variant is scored on the same pairs)
     is lateral, whose future covers the full horizon, and whose recorded endpoint moved >= compliance_m
@@ -109,6 +125,11 @@ def summarize(df: pd.DataFrame, cfg: Config) -> dict:
            'gate_open_fraction': _mean(df.gated.astype(float))}
     out['pairs_per_log'] = {str(k): int(v) for k, v in df.groupby('log_name').size().items()} if len(df) else {}
     out['intent_disagrees_with_rules_fraction'] = _mean((df.intent != df.rule_intent).astype(float))
+    label_cols = [c for c in df.columns if c.startswith('label_')]
+    out['label_coverage'] = (_mean(df[label_cols].notna().to_numpy().ravel().astype(float))
+                             if label_cols and len(df) else math.nan)
+    out['fut_label_counts'] = ({str(k): int(v) for k, v in df.fut_label.value_counts(dropna=False).items()}
+                               if 'fut_label' in df.columns and len(df) else {})
     subsets = (('gated', df[df.gated]), ('all', df),
                ('gated_disagree', df[df.gated & (df.intent != df.rule_intent)]))   # where word2vec can differ
     for name, sub in subsets:
@@ -128,6 +149,13 @@ def summarize(df: pd.DataFrame, cfg: Config) -> dict:
         m['compliance_diff_ci'] = bootstrap_diff(comp.old_ok.astype(float), comp.new_ok.astype(float),
                                                  cfg.bootstrap_n, cfg.seed, groups=comp.moment)
         m['compliance_intent'] = 'rule_intent'
+        lc = lane_compliance_frame(sub, cfg)
+        m['lane_compliance_n'] = int(len(lc))
+        m['lane_compliance_before'] = _mean(lc.old_ok.astype(float))
+        m['lane_compliance_after'] = _mean(lc.new_ok.astype(float))
+        m['lane_counterfactual_consistency'] = _mean(lc.cf_ok.astype(float))
+        m['lane_compliance_diff_ci'] = bootstrap_diff(lc.old_ok.astype(float), lc.new_ok.astype(float),
+                                                      cfg.bootstrap_n, cfg.seed, groups=lc.moment)
         m['n_moments'] = int(sub.moment.nunique()) if len(sub) else 0
         out[name] = m
     return out
@@ -152,11 +180,13 @@ def write_markdown(metrics: dict[str, dict], path: Path, cfg: Config) -> None:
     lines = ['# doPlan language re-ranking: results', '',
              f'lambda = {cfg.lam}; gate opens when plausible modes (score >= {cfg.gate_min_score}) spread '
              f'> {cfg.gate_endpoint_m} m at the endpoint or > {cfg.gate_heading_deg} deg in heading; '
-             f'compliance threshold {cfg.compliance_m} m.', '',
+             f'compliance threshold {cfg.compliance_m} m; compatibility from {cfg.compat_source}.', '',
              '| variant | subset | pairs with future | moments | top-1 ADE before | after | diff [95% CI] | '
              'minADE | top-1 FDE before | after |',
              '|---|---|---|---|---|---|---|---|---|---|']
     comp_lines = ['| variant | subset | n | before | after | diff [95% CI] | counterfactual |',
+                  '|---|---|---|---|---|---|---|']
+    lane_lines = ['| variant | subset | n | before | after | diff [95% CI] | counterfactual |',
                   '|---|---|---|---|---|---|---|']
     skipped = []
     for variant, m in metrics.items():
@@ -173,7 +203,13 @@ def write_markdown(metrics: dict[str, dict], path: Path, cfg: Config) -> None:
                               f"{_fmt(s['compliance_after'])} | "
                               f"{_fmt(cci['mean'])} [{_fmt(cci['lo'])}, {_fmt(cci['hi'])}] | "
                               f"{_fmt(s['counterfactual_consistency'])} |")
+            lci = s['lane_compliance_diff_ci']
+            lane_lines.append(f"| {variant} | {subset} | {s['lane_compliance_n']} | {_fmt(s['lane_compliance_before'])} | "
+                              f"{_fmt(s['lane_compliance_after'])} | {_fmt(lci['mean'])} [{_fmt(lci['lo'])}, {_fmt(lci['hi'])}] | "
+                              f"{_fmt(s['lane_counterfactual_consistency'])} |")
     lines += [''] + comp_lines
+    lines += ['', 'Lane compliance (population: lateral instructions whose recorded future, by the lane graph, performs '
+                  'the instructed manoeuvre within 6 s; success: the top-1 does too):', ''] + lane_lines
     if skipped:
         by_subset: dict[str, list[str]] = {}
         for variant, subset in skipped:
@@ -191,17 +227,45 @@ def write_markdown(metrics: dict[str, dict], path: Path, cfg: Config) -> None:
               '', 'compliance population: rule-labelled lateral instructions with a full 6 s recorded future, '
                   'counted identically for every variant.',
               '', 'pairs per log: ' + ', '.join(f'{k} {v}' for k, v in first['pairs_per_log'].items()),
+              '', f"lane labels cover {_fmt(first['label_coverage'])} of (pair, mode) rows; recorded-future labels: "
+                  + ', '.join(f'{k} {v}' for k, v in first['fut_label_counts'].items()),
               '', 'Counterfactual consistency is meaningful on gated pairs only: a closed gate leaves '
                   'cf_top1 == new_top1.']
     path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
 
 
-def plot_examples(df: pd.DataFrame, pt_dir: Path, out_dir: Path, cfg: Config) -> list[Path]:
-    """One PNG per pair with the largest L1 change between normalised MTR scores and fused scores."""
+def plot_prediction(pred: dict, path: Path, title: str, old_norm, new, old_top1: int, new_top1: int,
+                    cfg: Config) -> Path:
+    """Draw one ego prediction: history, recorded future, the modes with their MTR and fused scores."""
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
 
+    g, modes = np.asarray(pred['gt_trajs']), np.asarray(pred['pred_trajs'])
+    hist, fut = g[:cfg.past_len], g[cfg.past_len:]
+    hv, fv = hist[:, -1] > 0, fut[:, -1] > 0
+    fig, ax = plt.subplots(figsize=(7, 6))
+    ax.plot(hist[hv, 0], hist[hv, 1], 'k-', lw=3, zorder=4, label='history')
+    if fv.any():
+        ax.plot(fut[fv, 0], fut[fv, 1], color='0.2', ls='--', lw=2.5, zorder=4, label='recorded future')
+    for i, m in enumerate(modes):
+        style = {'lw': 3} if i == new_top1 else {'lw': 1.0, 'alpha': 0.7}
+        ax.plot(m[:, 0], m[:, 1], zorder=2, label=f'mode {i}: MTR {old_norm[i]:.2f} -> fused {new[i]:.2f}', **style)
+    ax.scatter(*modes[old_top1, -1], marker='x', s=120, c='k', zorder=5, label=f'MTR top-1 (mode {old_top1})')
+    ax.scatter(*modes[new_top1, -1], marker='*', s=200, c='r', zorder=5, label=f'fused top-1 (mode {new_top1})')
+    ax.set_title(title, fontsize=9)
+    ax.axis('equal')
+    ax.grid(alpha=.2)
+    ax.legend(fontsize=7)
+    fig.tight_layout()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=130)
+    plt.close(fig)
+    return path
+
+
+def plot_examples(df: pd.DataFrame, pt_dir: Path, out_dir: Path, cfg: Config) -> list[Path]:
+    """One PNG per pair with the largest L1 change between normalised MTR scores and fused scores."""
     out_dir.mkdir(parents=True, exist_ok=True)
     k = sum(1 for c in df.columns if c.startswith('s_old_'))
     old = df[[f's_old_{i}' for i in range(k)]].to_numpy(dtype=np.float64)
@@ -211,30 +275,12 @@ def plot_examples(df: pd.DataFrame, pt_dir: Path, out_dir: Path, cfg: Config) ->
     chosen = chosen.sort_values('_change', ascending=False).drop_duplicates('pred_file')
     paths = []
     for n, r in enumerate(chosen.head(cfg.n_example_plots).itertuples(index=False)):
-        p = load_prediction(pt_dir / r.pred_file)
-        g, modes = np.asarray(p['gt_trajs']), np.asarray(p['pred_trajs'])
-        hist, fut = g[:cfg.past_len], g[cfg.past_len:]
-        hv, fv = hist[:, -1] > 0, fut[:, -1] > 0
-        fig, ax = plt.subplots(figsize=(7, 6))
-        ax.plot(hist[hv, 0], hist[hv, 1], 'k-', lw=3, zorder=4, label='history')
-        if fv.any():
-            ax.plot(fut[fv, 0], fut[fv, 1], color='0.2', ls='--', lw=2.5, zorder=4, label='recorded future')
-        for i, m in enumerate(modes):
-            style = {'lw': 3} if i == r.new_top1 else {'lw': 1.0, 'alpha': 0.7}
-            ax.plot(m[:, 0], m[:, 1], zorder=2, label=f'mode {i}: MTR {getattr(r, f"oldnorm_{i}"):.2f} -> fused '
-                                                     f'{getattr(r, f"s_new_{i}"):.2f}', **style)
-        ax.scatter(*modes[r.old_top1, -1], marker='x', s=120, c='k', zorder=5, label=f'MTR top-1 (mode {r.old_top1})')
-        ax.scatter(*modes[r.new_top1, -1], marker='*', s=200, c='r', zorder=5, label=f'fused top-1 (mode {r.new_top1})')
-        ax.set_title(f'"{r.instruction[:90]}"\nintent {r.intent}; gate {"open" if r.gated else "closed"}; '
-                     f'{r.pred_file}', fontsize=9)
-        ax.axis('equal')
-        ax.grid(alpha=.2)
-        ax.legend(fontsize=7)
-        fig.tight_layout()
-        path = out_dir / f'example_{n:02d}_{r.annotation_id}_{r.scenario_id}_{r.time_index}.png'
-        fig.savefig(path, dpi=130)
-        plt.close(fig)
-        paths.append(path)
+        title = (f'"{r.instruction[:90]}"\nintent {r.intent}; gate {"open" if r.gated else "closed"}; {r.pred_file}')
+        paths.append(plot_prediction(
+            load_prediction(pt_dir / r.pred_file),
+            out_dir / f'example_{n:02d}_{r.annotation_id}_{r.scenario_id}_{r.time_index}.png', title,
+            [getattr(r, f'oldnorm_{i}') for i in range(k)], [getattr(r, f's_new_{i}') for i in range(k)],
+            int(r.old_top1), int(r.new_top1), cfg))
     return paths
 
 

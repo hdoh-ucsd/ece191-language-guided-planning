@@ -96,3 +96,32 @@ def test_two_annotations_on_one_prediction_share_features_and_get_two_files(fake
     assert len(df) == 2 and df.lat_0.nunique() == 1 and df.gated.all()
     assert df.new_top1.tolist() == [0, 2]                                   # left turn moves it, `other` does not
     assert sorted(p.name for p in out_pt.glob('*.pt')) == ['fake___ego___0____a1.pt', 'fake___ego___0____a2.pt']
+
+
+def test_rerank_with_lane_graph_labels(tmp_path):
+    from doplan_lang.lanes import LaneGraph
+    from .conftest import synthetic_map_features
+    pt = tmp_path / 'pt'
+    pt.mkdir()
+    # a hand-built prediction in lane A2 (y = -3.5) heading east: mode 0 changes into A1 (ends y = +1.0, so the
+    # endpoints spread 4.5 m and the gate opens), mode 1 drifts 1.3 m left but stays in A2, mode 2 goes straight
+    xs = 30.5 + np.arange(1, 61) * 0.5
+    modes = np.stack([np.stack([xs, np.linspace(-3.5, 1.0, 60)], 1), np.stack([xs, np.linspace(-3.5, -2.2, 60)], 1),
+                      np.stack([xs, np.full(60, -3.5)], 1)]).astype(np.float32)
+    gt = np.zeros((81, 10), dtype=np.float32)
+    gt[:, 0] = np.concatenate([30.5 - np.arange(21, 0, -1) * 0.5, xs])
+    gt[:, 1], gt[:, 9] = -3.5, 1.0
+    torch.save({'scenario_id': 'S', 'pred_trajs': modes, 'pred_scores': np.array([0.3, 0.4, 0.3], dtype=np.float32),
+                'past_det_scores': np.float32(1.0), 'object_id': 'ego', 'object_type': 1, 'gt_trajs': gt,
+                'track_index_to_predict': 0, 'current_time_index': 0}, pt / 'S___ego___20___.pt')
+    pairs = pd.DataFrame([dict(zip(PAIR_COLUMNS, ['S___ego___20___.pt', 'S', 'logA', 20, 40, 1000, 'logA:0', 'a1', 'logA',
+                                                  'switch one lane to the left', 'switch one lane to the left', 'lane_left']))])
+    graph = LaneGraph.from_map_features(synthetic_map_features())
+    df = rerank_pairs(pairs, pt, Config(), lambda c: one_hot(rule_intent(c)), graph_for=lambda sid: graph)
+    r = df.iloc[0]
+    assert (r.label_0, r.label_1, r.label_2) == ('lane_left', 'straight', 'straight') and r.fut_label == 'straight'
+    assert r.lane_start == 'A2' and r.n_unlabelled == 0 and not r.stop_2 and r.gated
+    assert r.old_top1 == 1 and r.new_top1 == 0 and r.new_top1_label == 'lane_left' and r.old_top1_label == 'straight'
+    # without a graph: v1 behaviour, nothing is labelled
+    df0 = rerank_pairs(pairs, pt, Config(), lambda c: one_hot(rule_intent(c)))
+    assert df0.iloc[0].label_0 is None and df0.iloc[0].n_unlabelled == 3

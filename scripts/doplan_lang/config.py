@@ -39,7 +39,7 @@ class Config:
     turn_lat_m: float = 2.0
     turn_heading_deg: float = 30.0
     lane_lat_m: float = 1.5
-    lane_heading_deg: float = 20.0
+    geom_lane_heading_deg: float = 20.0   # v1 geometric table: a mode turning more than this is no lane change
     straight_lat_m: float = 1.5
     straight_heading_deg: float = 15.0
     stop_path_m: float = 3.0
@@ -53,3 +53,23 @@ class Config:
     compliance_m: float = 1.0
     bootstrap_n: int = 1000
     n_example_plots: int = 12
+    # lane graph (v2 spec 4.1, 5)
+    compat_source: str = 'map'          # 'map' (lane labels) or 'geometry' (v1 sigmoid table)
+    lane_assign_m: float = 3.0          # max centreline distance for a lane assignment
+    lane_heading_deg: float = 90.0      # a lane heading further than this from the direction of travel is not a candidate
+    lane_inside_bonus_m: float = 1.0    # score bonus for a lane polygon that contains the point
+    lane_tail_s: float = 2.0            # trajectory tail that disambiguates overlapping lanes
+    lane_lateral_cost: float = 1.5      # route cost of a neighbour move (an exit move costs 1)
+    lane_route_max_cost: float = 8.0
+    stop_speed_mps: float = 1.0         # net speed over the last 0.5 s below which a trajectory "stops"
+    # toy simulator (v2 spec 4.6)
+    sim_dt: float = 0.1
+    sim_max_accel: float = 4.0
+    sim_max_curvature: float = 0.2
+    sim_lookahead_gain: float = 0.8
+    sim_lookahead_min_m: float = 3.0
+    sim_lookahead_max_m: float = 10.0
+    sim_speed_gain: float = 1.0
+    sim_ego_length: float = 5.176
+    sim_ego_width: float = 2.297
+    offlane_m: float = 2.0              # a step outside every lane polygon AND farther than this from every centreline is off-lane

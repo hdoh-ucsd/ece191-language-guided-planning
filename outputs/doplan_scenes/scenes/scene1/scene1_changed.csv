@@ -1,0 +1,1 @@
+t_rel_s,pred_file,scenario_id,annotation_id,instruction,intent,old_top1,new_top1,old_lat,old_dpsi,old_path,new_lat,new_dpsi,new_path,rec_lat,rec_dpsi,rec_path,rec_steps,ade_old,ade_new,fde_old,fde_new,closer,old_top1_label,new_top1_label,fut_label

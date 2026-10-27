@@ -30,3 +30,5 @@ outputs/**/pairs.csv
 outputs/**/reranked.csv
 outputs/**/reranked_rules.csv
 outputs/doplan_lang_lam*/plots/
+outputs/**/reranked_geometry.csv
+outputs/doplan_lang/toysim/toysim.csv

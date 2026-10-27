@@ -43,3 +43,35 @@ def fake_pred_dir(tmp_path):
     d.mkdir()
     write_fake_prediction(d / 'fake___ego___0___.pt')
     return d
+
+
+def _lane(xy, exits=(), entries=(), left=(), right=(), kind='LANE_SURFACE_STREET', half_width=1.75):
+    """A ScenarioNet-style lane feature: centreline, a polygon offset half_width to each side, links."""
+    xy = np.asarray(xy, dtype=np.float64)
+    seg = np.diff(xy, axis=0)
+    n = np.stack([-seg[:, 1], seg[:, 0]], 1) / np.linalg.norm(seg, axis=1)[:, None]
+    n = np.vstack([n, n[-1:]])
+    polygon = np.vstack([xy + half_width * n, (xy - half_width * n)[::-1]])
+    return {'type': kind, 'polyline': xy, 'polygon': polygon, 'exit_lanes': list(exits), 'entry_lanes': list(entries),
+            'left_neighbor': list(left), 'right_neighbor': list(right)}
+
+
+def _arc_xy(centre, radius, deg_from, deg_to, n=40):
+    th = np.radians(np.linspace(deg_from, deg_to, n))
+    return np.stack([centre[0] + radius * np.cos(th), centre[1] + radius * np.sin(th)], 1)
+
+
+def synthetic_map_features():
+    """Three straight lanes A0 (y=+3.5), A1 (y=0), A2 (y=-3.5) from x=0 to 60 continuing into B0..B2 to
+    x=120; a right-turn connector C (A2 -> south, radius 10) and a left-turn connector D (A0 -> north)."""
+    xs = np.linspace(0, 60, 61)
+    f = {}
+    for i, y in enumerate((3.5, 0.0, -3.5)):
+        left, right = ([f'A{i - 1}'] if i > 0 else []), ([f'A{i + 1}'] if i < 2 else [])
+        f[f'A{i}'] = _lane(np.stack([xs, np.full_like(xs, y)], 1),
+                           exits=[f'B{i}'] + (['D'] if i == 0 else ['C'] if i == 2 else []), left=left, right=right)
+        f[f'B{i}'] = _lane(np.stack([xs + 60, np.full_like(xs, y)], 1), entries=[f'A{i}'],
+                           left=[f'B{i - 1}'] if i > 0 else [], right=[f'B{i + 1}'] if i < 2 else [])
+    f['C'] = _lane(_arc_xy((60.0, -13.5), 10.0, 90, 0), entries=['A2'], kind='LANE_SURFACE_UNSTRUCTURE')
+    f['D'] = _lane(_arc_xy((60.0, 13.5), 10.0, -90, 0), entries=['A0'], kind='LANE_SURFACE_UNSTRUCTURE')
+    return f

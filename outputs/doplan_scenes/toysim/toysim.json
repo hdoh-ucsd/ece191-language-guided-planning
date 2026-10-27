@@ -1,0 +1,108 @@
+{
+  "n_rows": 522,
+  "n_pairs": 197,
+  "gated": {
+    "mtr_top1": {
+      "n": 180,
+      "completion_n": 147,
+      "completion": 0.12244897959183673,
+      "collision": 0.0,
+      "offlane": 0.0,
+      "tracking_rms_m": 0.12036483134759375,
+      "lat_accel_p95": 2.1464978823541965
+    },
+    "reranked_top1": {
+      "n": 180,
+      "completion_n": 147,
+      "completion": 0.14285714285714285,
+      "collision": 0.011111111111111112,
+      "offlane": 0.005555555555555556,
+      "tracking_rms_m": 0.14937173994336683,
+      "lat_accel_p95": 2.148898517888261
+    },
+    "recorded": {
+      "n": 117,
+      "completion_n": 94,
+      "completion": 0.1702127659574468,
+      "collision": 0.0,
+      "offlane": 0.0,
+      "tracking_rms_m": 0.06424371916600068,
+      "lat_accel_p95": 2.407256522167714
+    },
+    "diff_reranked_minus_mtr": {
+      "completion": {
+        "mean": 0.02040816326530612,
+        "lo": 0.0,
+        "hi": 0.04861111111111111,
+        "n": 147,
+        "n_groups": 37
+      },
+      "collision": {
+        "mean": 0.011111111111111112,
+        "lo": 0.0,
+        "hi": 0.02941611555864949,
+        "n": 180,
+        "n_groups": 37
+      },
+      "offlane": {
+        "mean": 0.005555555555555556,
+        "lo": 0.0,
+        "hi": 0.017859816082121466,
+        "n": 180,
+        "n_groups": 37
+      }
+    }
+  },
+  "all": {
+    "mtr_top1": {
+      "n": 197,
+      "completion_n": 161,
+      "completion": 0.11180124223602485,
+      "collision": 0.0,
+      "offlane": 0.0,
+      "tracking_rms_m": 0.12363365315436682,
+      "lat_accel_p95": 2.1464978823541965
+    },
+    "reranked_top1": {
+      "n": 197,
+      "completion_n": 161,
+      "completion": 0.13043478260869565,
+      "collision": 0.01015228426395939,
+      "offlane": 0.005076142131979695,
+      "tracking_rms_m": 0.15013742750583461,
+      "lat_accel_p95": 2.1464978823541965
+    },
+    "recorded": {
+      "n": 128,
+      "completion_n": 103,
+      "completion": 0.1553398058252427,
+      "collision": 0.0,
+      "offlane": 0.0,
+      "tracking_rms_m": 0.06110945816821425,
+      "lat_accel_p95": 2.407256522167714
+    },
+    "diff_reranked_minus_mtr": {
+      "completion": {
+        "mean": 0.018633540372670808,
+        "lo": 0.0,
+        "hi": 0.042556434872859365,
+        "n": 161,
+        "n_groups": 40
+      },
+      "collision": {
+        "mean": 0.01015228426395939,
+        "lo": 0.0,
+        "hi": 0.027472527472527472,
+        "n": 197,
+        "n_groups": 40
+      },
+      "offlane": {
+        "mean": 0.005076142131979695,
+        "lo": 0.0,
+        "hi": 0.015789473684210527,
+        "n": 197,
+        "n_groups": 40
+      }
+    }
+  }
+}

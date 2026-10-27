@@ -49,6 +49,9 @@ def test_full_chain_on_toy_log(tmp_path):
     assert 0 < len(short_win) == expected_short < 58
     assert metrics['classifier']['n_pairs'] == 58 + expected_short
     assert metrics['classifier']['gated']['n_pairs'] > 0 and 0 < metrics['classifier']['gate_open_fraction'] < 1
+    # unlabelled modes on the toy log: endpoints off every lane and modes that end travelling against the lane
+    assert metrics['classifier']['label_coverage'] > 0.8 and 'classifier_geometry' in metrics
+    assert (out / 'reranked_geometry.csv').exists()
     reranked = pd.read_csv(out / 'reranked.csv')
     assert (reranked.loc[reranked.annotation_id == 'fake_0001', 'intent'] == 'turn_left').all()
     assert (reranked.loc[reranked.annotation_id == 'fake_0002', 'intent'] == 'stop').all()

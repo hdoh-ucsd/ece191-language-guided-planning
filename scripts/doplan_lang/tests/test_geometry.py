@@ -79,3 +79,22 @@ def test_compat_mixes_by_probability():
     assert compat(feats, {'other': 1.0}, cfg)[0] == 1.0
     half = compat(feats, {'straight': 0.5, 'other': 0.5}, cfg)[0]
     assert 0.5 < half < 1.0
+
+
+def test_compat_table_from_labels():
+    import numpy as np
+    from doplan_lang.config import INTENTS, Config
+    from doplan_lang.geometry import compat, compat_table_from_labels
+    cfg = Config()
+    t = compat_table_from_labels(['lane_right', None, 'straight'], [False, True, True], cfg)
+    i = {k: INTENTS.index(k) for k in INTENTS}
+    assert t[0, i['lane_right']] == 1.0 and t[0, i['lane_left']] == cfg.compat_floor and t[0, i['other']] == 1.0
+    assert t[0, i['stop']] == cfg.compat_floor and t[2, i['stop']] == 1.0 and t[2, i['straight']] == 1.0
+    assert np.all(t[1, [i['turn_left'], i['lane_right'], i['straight']]] == cfg.compat_floor)   # unlabelled: floor
+    assert t[1, i['stop']] == 1.0 and t[1, i['other']] == 1.0
+    feats = np.zeros((3, 3))
+    c_map = compat(feats, {'lane_right': 1.0}, cfg, labels=['lane_right', None, 'straight'], stops=[False, True, True])
+    assert c_map[0] == 1.0 and c_map[2] == cfg.compat_floor
+    c_geo = compat(feats, {'lane_right': 1.0}, Config(compat_source='geometry'),
+                   labels=['lane_right', None, 'straight'], stops=[False, True, True])
+    assert c_geo[0] == c_geo[2]

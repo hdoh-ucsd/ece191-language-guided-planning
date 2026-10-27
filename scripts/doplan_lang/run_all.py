@@ -25,6 +25,7 @@ from .align import (build_pairs, coverage_table, list_ego_predictions, load_lida
 from .config import Config
 from .evaluate import add_errors, plot_examples, summarize, write_metrics
 from .intent import predict_proba
+from .lanes import LaneGraph, load_map_features
 from .rerank import one_hot, rerank_pairs
 from .text import load_annotations, rule_intent
 
@@ -46,8 +47,11 @@ def main(argv=None) -> dict:
     p.add_argument('--no-pt', action='store_true', help='do not write reranked_pt/ copies (tens of thousands of files on the real run)')
     p.add_argument('--lam', type=float, default=None, help='fusion exponent (default Config.lam)')
     p.add_argument('--exclude-log', action='append', default=None, help='logs to hold out of training; REPLACES config.EVAL_LOGS when given; repeatable')
+    p.add_argument('--compat', choices=('map', 'geometry'), default=None, help='compatibility source for every variant (default Config.compat_source)')
     a = p.parse_args(argv)
     cfg = Config() if a.lam is None else replace(Config(), lam=a.lam)
+    if a.compat:
+        cfg = replace(cfg, compat_source=a.compat)
     a.out.mkdir(parents=True, exist_ok=True)
     excl = [x for log in (a.exclude_log or []) for x in ('--exclude-log', log)]
 
@@ -85,17 +89,35 @@ def main(argv=None) -> dict:
     if pairs.empty:
         raise SystemExit('no (prediction, annotation) pairs: output_MTR holds no ego predictions inside any window')
 
-    variants = {'classifier': lambda c: predict_proba(clf, kv, c),
-                'rules_only': lambda c: one_hot(rule_intent(c))}
+    graphs: dict[str, LaneGraph] = {}
+
+    def graph_for(sid: str) -> LaneGraph:
+        if sid not in graphs:
+            if len(graphs) >= 2:
+                graphs.pop(next(iter(graphs)))
+            graphs[sid] = LaneGraph.from_map_features(load_map_features(a.scenarionet, sid))
+        return graphs[sid]
+
+    def clf_fn(c):
+        return predict_proba(clf, kv, c)
+
+    variants = {'classifier': (clf_fn, cfg, 'reranked.csv'),
+                'rules_only': (lambda c: one_hot(rule_intent(c)), cfg, 'reranked_rules.csv')}
+    if cfg.compat_source == 'map':      # the v1 geometric table as an ablation, same classifier
+        variants['classifier_geometry'] = (clf_fn, replace(cfg, compat_source='geometry'), 'reranked_geometry.csv')
     metrics = {}
-    for name, fn in variants.items():
+    manoeuvres: dict = {}        # lane labels per prediction, shared by the variants
+    for name, (fn, vcfg, fname) in variants.items():
         is_main = name == 'classifier'
-        df = rerank_pairs(pairs, pt_dir, cfg, fn, (None if a.no_pt else a.out / 'reranked_pt') if is_main else None)
-        df = add_errors(df, pt_dir, cfg)
-        df.to_csv(a.out / ('reranked.csv' if is_main else 'reranked_rules.csv'), index=False)
-        metrics[name] = summarize(df, cfg)
+        df = rerank_pairs(pairs, pt_dir, vcfg, fn, (None if a.no_pt else a.out / 'reranked_pt') if is_main else None,
+                          graph_for=graph_for, manoeuvre_cache=manoeuvres)
+        df = add_errors(df, pt_dir, vcfg)
+        df.to_csv(a.out / fname, index=False)
+        metrics[name] = summarize(df, vcfg)
         if is_main:
-            plot_examples(df, pt_dir, a.out / 'plots', cfg)
+            print(f'lane labels cover {metrics[name]["label_coverage"]:.3f} of (pair, mode) rows; '
+                  f'{int(df.n_unlabelled.sum())} unlabelled modes over {len(df)} pairs')
+            plot_examples(df, pt_dir, a.out / 'plots', vcfg)
     write_metrics(metrics, a.out, cfg)
     print((a.out / 'metrics.md').read_text(encoding='utf-8'))
     return metrics

@@ -108,3 +108,29 @@ def testjson_safe_and_markdown_ci_column(tmp_path):
     assert '| n | before | after | diff [95% CI] | counterfactual |' in text and 'pairs per log: logA 3' in text
     assert 'compliance population' in text
     json.loads(json.dumps(json_safe(m), allow_nan=False))                          # strict round trip
+
+
+def test_lane_compliance_frame_and_summary():
+    import pandas as pd
+    from doplan_lang.config import Config
+    from doplan_lang.evaluate import lane_compliance_frame, mirror_intent, summarize
+    base = dict(pred_file='p', moment='m', log_name='l', annotation_id='a', gated=True, intent='lane_left', fut_valid=60,
+                ade_old=1.0, ade_new=1.0, fde_old=1.0, fde_new=1.0, min_ade=1.0, min_fde=1.0, fut_lat=2.0,
+                old_top1_lat=0.0, new_top1_lat=2.0, cf_top1_lat=-2.0, label_0='straight', label_1='lane_left', label_2=None)
+    rows = [dict(base, rule_intent='lane_left', fut_label='lane_left', old_top1_label='straight', new_top1_label='lane_left',
+                 cf_top1_label='lane_right'),
+            dict(base, rule_intent='lane_left', fut_label='straight', old_top1_label='straight', new_top1_label='lane_left',
+                 cf_top1_label='lane_right'),                                   # the driver did not: excluded
+            dict(base, rule_intent='turn_right', fut_label='turn_right', old_top1_label='turn_right', new_top1_label='straight',
+                 cf_top1_label='straight'),
+            dict(base, rule_intent='stop', fut_label='straight', old_top1_label='straight', new_top1_label='straight',
+                 cf_top1_label='straight')]                                      # not lateral
+    df = pd.DataFrame(rows)
+    comp = lane_compliance_frame(df, Config())
+    assert len(comp) == 2 and list(comp.old_ok) == [False, True] and list(comp.new_ok) == [True, False]
+    assert list(comp.cf_ok) == [True, False]
+    assert mirror_intent('lane_left') == 'lane_right' and mirror_intent('turn_right') == 'turn_left'
+    m = summarize(df, Config(bootstrap_n=10))
+    assert m['gated']['lane_compliance_n'] == 2 and m['gated']['lane_compliance_before'] == 0.5
+    assert m['gated']['lane_compliance_after'] == 0.5 and abs(m['label_coverage'] - 2 / 3) < 1e-9
+    assert m['fut_label_counts']['straight'] == 2

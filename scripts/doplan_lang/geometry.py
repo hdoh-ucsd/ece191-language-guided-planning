@@ -65,7 +65,7 @@ def compat_table(features: np.ndarray, cfg: Config) -> np.ndarray:
     def above(x, threshold, scale):
         return sigmoid((x - threshold) / scale)
 
-    not_turning_lane = 1 - above(np.abs(dpsi), cfg.lane_heading_deg, 10.0)
+    not_turning_lane = 1 - above(np.abs(dpsi), cfg.geom_lane_heading_deg, 10.0)
     table = np.stack([
         above(lat, cfg.turn_lat_m, 1.0) * above(dpsi, cfg.turn_heading_deg, 10.0),        # turn_left
         above(-lat, cfg.turn_lat_m, 1.0) * above(-dpsi, cfg.turn_heading_deg, 10.0),      # turn_right
@@ -80,7 +80,27 @@ def compat_table(features: np.ndarray, cfg: Config) -> np.ndarray:
     return np.maximum(table, cfg.compat_floor)
 
 
-def compat(features: np.ndarray, probs: dict[str, float], cfg: Config) -> np.ndarray:
-    """Expected compatibility of each mode under the intent distribution `probs`."""
+def compat_table_from_labels(labels, stops, cfg: Config) -> np.ndarray:
+    """Label table (v2 spec 4.2): the label column is 1, the other lateral/straight columns the floor, `stop`
+    follows the stop flag, `other` is 1. A mode without a label (off every lane, reversing, or no route) gets the
+    floor on every lateral/straight column: with a map available it cannot be shown to do any of them."""
+    table = np.full((len(labels), len(INTENTS)), cfg.compat_floor)
+    i_stop, i_other = INTENTS.index('stop'), INTENTS.index('other')
+    for k, (lab, stop) in enumerate(zip(labels, stops)):
+        if lab is not None:
+            table[k, INTENTS.index(lab)] = 1.0
+        if stop:
+            table[k, i_stop] = 1.0
+        table[k, i_other] = 1.0
+    return table
+
+
+def compat(features: np.ndarray, probs: dict[str, float], cfg: Config, labels=None, stops=None) -> np.ndarray:
+    """Expected compatibility of each mode under the intent distribution `probs`: the lane-label table when
+    labels are given (the scenario has a map) and cfg.compat_source == 'map', else the v1 geometric table."""
     p = np.array([probs.get(k, 0.0) for k in INTENTS], dtype=np.float64)
-    return compat_table(features, cfg) @ p
+    if labels is not None and cfg.compat_source == 'map':
+        table = compat_table_from_labels(labels, stops if stops is not None else [False] * len(labels), cfg)
+    else:
+        table = compat_table(features, cfg)
+    return table @ p

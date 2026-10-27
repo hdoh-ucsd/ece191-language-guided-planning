@@ -11,6 +11,16 @@
    frame and the output is empty. Default the flag to false; NUPLAN_REMOVE_INVALID_GOALS=true
    restores upstream behaviour.
 
+3. ScenarioNet: NUPLAN_SCENARIO_TOKENS=<tok1,tok2,...> (lidar_pc tokens, hex) converts exactly one
+   scenario per token, anchored at that frame, instead of every tagged frame of the log;
+   NUPLAN_TIMESTAMP_THRESHOLD_S overrides the 20 s minimum spacing between scenarios of a type.
+   NUPLAN_DEFAULT_WINDOW=true extracts every scenario with the devkit default window (20 s from the
+   anchor frame, no offset) instead of the per-type (duration, offset) mapping.
+
+4. nuplan-devkit: the scenario query drops lidar frames of the first two and the last two scenes
+   of a log. NUPLAN_INCLUDE_EDGE_SCENES=true keeps them, so a scenario can be anchored near a log's
+   start (the caller is then responsible for the history and future it needs).
+
 Each patch targets the pinned revisions and refuses to touch a file whose expected
 fragment is not found exactly once. Safe to run repeatedly.
 """
@@ -35,6 +45,22 @@ PATCHES = {
             "            self.load_vector_layer(location, DUMMY_LOAD_LAYER)\n",
             ('from nuplan.database.common.blob_store.local_store import LocalStore', 'import os',
              'logger = logging.getLogger'),
+        ),
+        (
+            'nuplan/database/nuplan_db/nuplan_scenario_queries.py',
+            'import os for the edge-scene switch',
+            'import pickle\nimport sqlite3\n',
+            'import os\nimport pickle\nimport sqlite3\n',
+            (),
+        ),
+        (
+            'nuplan/database/nuplan_db/nuplan_scenario_queries.py',
+            'NUPLAN_INCLUDE_EDGE_SCENES=true keeps lidar frames of the first two and last two scenes',
+            '        INNER JOIN valid_scenes AS vs\n'
+            '            ON lp.scene_token = vs.token\n',
+            "        {'' if os.environ.get('NUPLAN_INCLUDE_EDGE_SCENES', '').lower() == 'true' else "
+            "'INNER JOIN valid_scenes AS vs ON lp.scene_token = vs.token'}\n",
+            ('WITH ordered_scenes AS',),
         ),
     ],
     'scenarionet': [
@@ -67,6 +93,33 @@ PATCHES = {
             '        if _track[SD.TYPE] in (MetaDriveType.VEHICLE, MetaDriveType.PEDESTRIAN, MetaDriveType.CYCLIST)\n'
             '    }\n',
             ('MetaDriveType', 'SD.TYPE'),
+        ),
+        (
+            'scenarionet/converter/nuplan/utils.py',
+            'optional scenario_tokens / timestamp_threshold_s overrides from the environment',
+            '        "scenario_filter.timestamp_threshold_s=20",  # minial scenario duration (s)\n',
+            '        # valeo_mtr_docker patch: NUPLAN_SCENARIO_TOKENS (comma-separated lidar_pc tokens) extracts\n'
+            '        # one scenario per token instead of every tagged frame; NUPLAN_TIMESTAMP_THRESHOLD_S is the\n'
+            '        # minimum spacing between scenarios of one type (upstream: 20).\n'
+            '        "scenario_filter.timestamp_threshold_s={}".format(\n'
+            '            os.environ.get("NUPLAN_TIMESTAMP_THRESHOLD_S", "20")),\n'
+            '        *(["scenario_filter.scenario_tokens=[{}]".format(os.environ["NUPLAN_SCENARIO_TOKENS"])]\n'
+            '          if os.environ.get("NUPLAN_SCENARIO_TOKENS") else []),\n',
+            ('import os',),
+        ),
+        (
+            'scenarionet/converter/nuplan/utils.py',
+            'NUPLAN_DEFAULT_WINDOW=true gives every scenario the default window (20 s from its anchor frame)',
+            '    scenario_builder = build_scenario_builder(cfg=cfg)\n',
+            '    scenario_builder = build_scenario_builder(cfg=cfg)\n'
+            '    # valeo_mtr_docker patch: with NUPLAN_DEFAULT_WINDOW=true every scenario, whatever its tag, is\n'
+            '    # extracted with the devkit defaults (20 s, no offset) from its anchor lidar frame, so that a\n'
+            '    # scenario requested through NUPLAN_SCENARIO_TOKENS starts exactly at the given frame.\n'
+            '    if os.environ.get("NUPLAN_DEFAULT_WINDOW", "").lower() == "true":\n'
+            '        from nuplan.planning.scenario_builder.nuplan_db.nuplan_scenario_utils import ScenarioMapping\n'
+            '        scenario_builder._scenario_mapping = ScenarioMapping(\n'
+            '            scenario_map={}, subsample_ratio_override=scenario_builder._scenario_mapping.subsample_ratio_override)\n',
+            ('import os', 'build_scenario_filter(cfg.scenario_filter)'),
         ),
     ],
 }

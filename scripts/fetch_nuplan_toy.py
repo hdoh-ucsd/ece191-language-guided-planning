@@ -9,6 +9,10 @@ Example:
   python3 scripts/fetch_nuplan_toy.py --dest nuplan_data \
       --log 2021.08.24.13.12.55_veh-45_00386_00472 --city us-pa-pittsburgh-hazelwood
 
+Logs of the public train/val/test archives work the same way (--archive train_vegas_2 reads
+nuplan-v1.1_train_vegas_2.zip, 152 GB, and pulls only the requested members). Logs land in
+nuplan-v1.1/splits/<archive>/.
+
 Data is CC BY-NC-SA 4.0 plus Motional's additional terms (non-commercial); the LICENSE
 file is written next to the data.
 """
@@ -25,9 +29,12 @@ import zipfile
 from pathlib import Path
 
 BUCKET = 'https://motional-nuplan.s3.amazonaws.com/public/nuplan-v1.1'
-MINI_ZIP = f'{BUCKET}/nuplan-v1.1_mini.zip'
 MAPS_ZIP = f'{BUCKET}/nuplan-maps-v1.0.zip'
 MAP_INDEX = 'maps/nuplan-maps-v1.0.json'
+
+
+def archive_url(archive: str) -> str:
+    return f'{BUCKET}/nuplan-v1.1_{archive}.zip'
 RETRIES = 6
 
 
@@ -104,20 +111,24 @@ def main() -> None:
     p.add_argument('--log', action='append', required=True, help='log name without .db; repeatable')
     p.add_argument('--city', action='append', required=True,
                    help='map location of the log(s), e.g. us-pa-pittsburgh-hazelwood; repeatable')
-    p.add_argument('--list', action='store_true', help='only list the logs in the mini split and exit')
+    p.add_argument('--archive', default='mini',
+                   help='archive holding the logs: mini (default) or a public split such as train_vegas_2, '
+                        'train_boston, val, test; logs are written to nuplan-v1.1/splits/<archive>/')
+    p.add_argument('--list', action='store_true', help='only list the logs in the archive and exit')
     args = p.parse_args()
 
-    mini, mini_rf = open_remote_zip(MINI_ZIP)
+    split_dir = args.dest / 'nuplan-v1.1' / 'splits' / args.archive
+    logs_zip, logs_rf = open_remote_zip(archive_url(args.archive))
     if args.list:
-        for zi in sorted(mini.infolist(), key=lambda z: z.file_size):
+        for zi in sorted(logs_zip.infolist(), key=lambda z: z.file_size):
             if zi.filename.endswith('.db'):
                 print(f'{zi.file_size / 1e6:8.1f} MB  {Path(zi.filename).stem}')
         return
 
-    print('mini split:')
-    extract(mini, 'LICENSE', args.dest / 'LICENSE')
+    print(f'{args.archive} split:')
+    extract(logs_zip, 'LICENSE', args.dest / 'LICENSE')
     for log in args.log:
-        extract(mini, f'data/cache/mini/{log}.db', args.dest / 'nuplan-v1.1' / 'splits' / 'mini' / f'{log}.db')
+        extract(logs_zip, f'data/cache/{args.archive}/{log}.db', split_dir / f'{log}.db')
 
     maps, maps_rf = open_remote_zip(MAPS_ZIP)
     print('maps:')
@@ -134,17 +145,19 @@ def main() -> None:
 
     print('verifying logs:')
     for log in args.log:
-        db = args.dest / 'nuplan-v1.1' / 'splits' / 'mini' / f'{log}.db'
+        db = split_dir / f'{log}.db'
         con = sqlite3.connect(f'file:{db}?mode=ro', uri=True)
         ok = con.execute('PRAGMA integrity_check').fetchone()[0]
-        loc = con.execute('SELECT location FROM log').fetchone()[0]
+        # The devkit opens the map named by log.map_version; log.location is a looser label
+        # (mini logs say 'sg-one-north', train_vegas logs say 'las_vegas').
+        loc, map_name = con.execute('SELECT location, map_version FROM log').fetchone()
         n = con.execute('SELECT COUNT(*) FROM lidar_pc').fetchone()[0]
-        print(f'  {db.name}: integrity={ok} location={loc} frames={n}')
+        print(f'  {db.name}: integrity={ok} location={loc} map={map_name} frames={n}')
         if ok != 'ok':
             raise SystemExit(f'{db} failed integrity check')
-        if loc not in args.city:
-            raise SystemExit(f'{db} is in {loc}, but only maps for {args.city} were fetched')
-    print(f'done; transferred {(mini_rf.fetched + maps_rf.fetched) / 1e6:.1f} MB')
+        if map_name not in args.city:
+            raise SystemExit(f'{db} uses map {map_name}, but only maps for {args.city} were fetched')
+    print(f'done; transferred {(logs_rf.fetched + maps_rf.fetched) / 1e6:.1f} MB')
 
 
 if __name__ == '__main__':
